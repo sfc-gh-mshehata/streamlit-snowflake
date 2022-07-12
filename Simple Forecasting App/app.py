@@ -33,7 +33,7 @@ item_list = list(sales_df[['ITEM']].distinct().sort('ITEM',ascending=True).to_pa
 
 v_store = st.selectbox('Store: ',store_list)
 v_item = st.selectbox('Item: ',item_list)
-v_months = st.slider('Periods to forecast:',1,80)
+v_days = st.slider('Days to forecast:',1,80)
 
 forecast_query = f"""
 with train as (
@@ -42,7 +42,7 @@ with train as (
     where store = {v_store} and item = {v_item} and date < '2017-10-31'
 )
 select train.store, train.item, res.*
-from train, table(my_forecasting_app.snowml.forecast(train.date, train.sales, {v_months}) over (partition by 1)) res;
+from train, table(my_forecasting_app.snowml.forecast(train.date, train.sales, {v_days}) over (partition by 1)) res;
 """
 
 
@@ -51,7 +51,7 @@ forecast_df = session.sql(forecast_query)
 
 if st.button('Run Forecast'):
 
-    st.write(f"### {v_months} month forecast for Item {v_item} at Store {v_store}")
+    st.write(f"### {v_days} day forecast for Item {v_item} at Store {v_store}")
     forecast_df = forecast_df.filter(F.col("TS") >= '2017-6-01').to_pandas()
     forecast_df['TS'] = pd.to_datetime(forecast_df['TS']).dt.date
 
@@ -65,11 +65,17 @@ if st.button('Run Forecast'):
             # hover_data=["NICKNAME","SCORE","UPDATED"]       
         )
 
-    fig1.update_yaxes(autorange="reversed")
+    # fig1.update_yaxes(autorange="reversed")
     st.plotly_chart(fig1,use_container_width=True)
+    st.write(f'#### Store {v_store}, Item {v_item}')
 
-# if st.checkbox('Show forecast details'):
-#     st.dataframe(forecast_df.filter(forecast_df['FORECAST'] != NullType))
-
+    csv = forecast_df[["TS","FORECAST"]][forecast_df.FORECAST > 0]
+    st.download_button(
+        label = "Download Forecast",
+        data = csv.to_csv().encode('utf-8'),
+        file_name=f"item{v_item}_store{v_store}_{v_days}_periods.csv",
+        mime = 'text/csv'
+    )
+    st.table(csv)
 
 
