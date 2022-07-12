@@ -71,7 +71,7 @@ if st.button('Run Forecast'):
 
     csv = forecast_df[["TS","FORECAST"]][forecast_df.FORECAST > 0]
     st.download_button(
-        label = "Download Forecast",
+        label = "Download as CSV",
         data = csv.to_csv().encode('utf-8'),
         file_name=f"item{v_item}_store{v_store}_{v_days}_periods.csv",
         mime = 'text/csv'
