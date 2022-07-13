@@ -19,41 +19,56 @@ connection_parameters = {
     "schema": st.secrets["schema"]
   }
 
-
 session = create_snowpark_session(connection_parameters)
+
+@st.cache
+def generate_forecast(store,item,days):
+    forecast_query = f"""
+    with train as (
+        select date, store, item, sales
+        from "BUSINESS_DATA"."PUBLIC"."SALES_DATA"
+        where store = {store} and item = {item} and date < '2017-10-31'
+    )
+    select train.store, train.item, res.*
+    from train, table(my_forecasting_app.snowml.forecast(train.date, train.sales, {days}) over (partition by 1)) res;
+    """
+    forecast_df = session.sql(forecast_query)
+    forecast_df = forecast_df.filter(F.col("TS") >= '2017-6-01').to_pandas()
+    forecast_df['TS'] = pd.to_datetime(forecast_df['TS']).dt.date
+    return forecast_df
+
+sales_df = session.table('SALES_DATA')
+
+@st.cache
+def populate_dropdown(column):
+    return list(sales_df[[column]].distinct().sort(column,ascending=True).to_pandas()[column])
+
 
 st.write('# Sales Forecast Builder')
 
 st.write('### Pick forecast parameters')
 
-sales_df = session.table('SALES_DATA')
 
-store_list = list(sales_df[['STORE']].distinct().sort('STORE',ascending=True).to_pandas()['STORE'])
-item_list = list(sales_df[['ITEM']].distinct().sort('ITEM',ascending=True).to_pandas()['ITEM'])
+
+# store_list = list(sales_df[['STORE']].distinct().sort('STORE',ascending=True).to_pandas()['STORE'])
+# item_list = list(sales_df[['ITEM']].distinct().sort('ITEM',ascending=True).to_pandas()['ITEM'])
+
+store_list = populate_dropdown('STORE')
+item_list = populate_dropdown('ITEM')
+
 
 v_store = st.selectbox('Store: ',store_list)
 v_item = st.selectbox('Item: ',item_list)
 v_days = st.slider('Days to forecast:',1,80)
 
-forecast_query = f"""
-with train as (
-    select date, store, item, sales
-    from "BUSINESS_DATA"."PUBLIC"."SALES_DATA"
-    where store = {v_store} and item = {v_item} and date < '2017-10-31'
-)
-select train.store, train.item, res.*
-from train, table(my_forecasting_app.snowml.forecast(train.date, train.sales, {v_days}) over (partition by 1)) res;
-"""
 
+if st.checkbox('Run Forecast'):
 
-forecast_df = session.sql(forecast_query)
-# forecast_df = session.sql(forecast_query).filter(F.col("TS") >= '2015-10-31')
+    # st.write(f"### {v_days} day forecast for Item {v_item} at Store {v_store}")
+    # forecast_df = forecast_df.filter(F.col("TS") >= '2017-6-01').to_pandas()
+    # forecast_df['TS'] = pd.to_datetime(forecast_df['TS']).dt.date
 
-if st.button('Run Forecast'):
-
-    st.write(f"### {v_days} day forecast for Item {v_item} at Store {v_store}")
-    forecast_df = forecast_df.filter(F.col("TS") >= '2017-6-01').to_pandas()
-    forecast_df['TS'] = pd.to_datetime(forecast_df['TS']).dt.date
+    forecast_df = generate_forecast(v_store, v_item, v_days)
 
     fig1 = px.line(
             forecast_df,
@@ -78,4 +93,5 @@ if st.button('Run Forecast'):
     )
     st.table(csv)
 
-
+    v_comment_date = st.selectbox('Date to comment on:',list(csv["TS"]))
+    v_comment = st.text_input('Comment')
