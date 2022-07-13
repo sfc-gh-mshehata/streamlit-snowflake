@@ -45,28 +45,19 @@ def populate_dropdown(column):
 
 
 st.write('# Sales Forecast Builder')
-
 st.write('### Pick forecast parameters')
 
-
-
-# store_list = list(sales_df[['STORE']].distinct().sort('STORE',ascending=True).to_pandas()['STORE'])
-# item_list = list(sales_df[['ITEM']].distinct().sort('ITEM',ascending=True).to_pandas()['ITEM'])
-
+# Data for selecting forecast parameters
 store_list = populate_dropdown('STORE')
 item_list = populate_dropdown('ITEM')
 
-
+# Dropdowns and slider for inputs
 v_store = st.selectbox('Store: ',store_list)
 v_item = st.selectbox('Item: ',item_list)
 v_days = st.slider('Days to forecast:',1,80)
 
-
+# generate a forecast and visualize using Plotly
 if st.checkbox('Run Forecast'):
-
-    # st.write(f"### {v_days} day forecast for Item {v_item} at Store {v_store}")
-    # forecast_df = forecast_df.filter(F.col("TS") >= '2017-6-01').to_pandas()
-    # forecast_df['TS'] = pd.to_datetime(forecast_df['TS']).dt.date
 
     forecast_df = generate_forecast(v_store, v_item, v_days)
 
@@ -82,6 +73,8 @@ if st.checkbox('Run Forecast'):
 
     # fig1.update_yaxes(autorange="reversed")
     st.plotly_chart(fig1,use_container_width=True)
+
+    # Add a download as CSV button and the raw forecast data display
     st.write(f'#### Store {v_store}, Item {v_item}')
 
     csv = forecast_df[["TS","FORECAST"]][forecast_df.FORECAST > 0]
@@ -92,6 +85,7 @@ if st.checkbox('Run Forecast'):
         mime = 'text/csv'
     )
     st.table(csv)
-
+    
+    # Adding a comment section for users to make notes on forecast dates (IN PROGRESS)    
     v_comment_date = st.selectbox('Date to comment on:',list(csv["TS"]))
     v_comment = st.text_input('Comment')
