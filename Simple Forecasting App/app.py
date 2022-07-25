@@ -59,6 +59,7 @@ v_days = st.slider('Days to forecast:',1,80)
 # generate a forecast and visualize using Plotly
 if st.checkbox('Run Forecast'):
 
+    st.write(f'### {v_days} day forecast for Item {v_item} at Store {v_store}')
     forecast_df = generate_forecast(v_store, v_item, v_days)
 
     fig1 = px.line(
