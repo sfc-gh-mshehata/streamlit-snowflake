@@ -4,6 +4,9 @@
 # DS Store
 .DS_Store
 
+# Video
+*.mov
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
