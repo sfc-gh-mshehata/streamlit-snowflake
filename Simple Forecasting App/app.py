@@ -37,6 +37,12 @@ def generate_forecast(store,item,days):
     forecast_df['TS'] = pd.to_datetime(forecast_df['TS']).dt.date
     return forecast_df
 
+@st.cache
+def insert_comment(date,store,item,comment):
+    key = str(date)+'|'+str(store)+'|'+str(item)
+    session.create_dataframe(data=[[key,date,store,item,comment]],schema=["key","date","store","item","comment"]).write.mode("append").save_as_table('forecast_comments')
+    return None
+
 sales_df = session.table('SALES_DATA')
 
 @st.cache
@@ -71,12 +77,14 @@ if st.checkbox('Run Forecast'):
             template='none'
             # hover_data=["NICKNAME","SCORE","UPDATED"]       
         )
+    # Figuring out if reference lines are a good fit for this use case
+    # fig1.add_vline('2017-11-01')
 
     # fig1.update_yaxes(autorange="reversed")
     st.plotly_chart(fig1,use_container_width=True)
 
     # Add a download as CSV button and the raw forecast data display
-    st.write(f'#### Store {v_store}, Item {v_item}')
+    st.write(f'#### Forecast for Store {v_store}, Item {v_item}')
 
     csv = forecast_df[["TS","FORECAST"]][forecast_df.FORECAST > 0]
     st.download_button(
@@ -87,6 +95,20 @@ if st.checkbox('Run Forecast'):
     )
     st.table(csv)
     
-    # Adding a comment section for users to make notes on forecast dates (IN PROGRESS)    
+    # Adding a comment section for users to make notes on forecast dates
+    st.write(f'#### Comments for Store {v_store}, Item {v_item}')
+
     v_comment_date = st.selectbox('Date to comment on:',list(csv["TS"]))
     v_comment = st.text_input('Comment')
+
+    comment_df = session.table('BUSINESS_DATA.PUBLIC.FORECAST_COMMENTS')
+    comment_df_filtered = comment_df.filter((F.col("STORE") == v_store) & (F.col("ITEM") == v_item))
+
+    if st.button('Save Comment'):
+        insert_comment(v_comment_date,v_store,v_item,v_comment)
+        filtered_comments = comment_df_filtered[["DATE","COMMENT"]].to_pandas()
+    else:
+        filtered_comments = comment_df_filtered[["DATE","COMMENT"]].to_pandas()
+
+    st.write("#### Comment History")
+    st.dataframe(filtered_comments)
